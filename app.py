@@ -1,19 +1,22 @@
-from flask import Flask, request
-import re
+from socket import inet_pton, AF_INET, AF_INET6
+from flask import abort, Flask, request
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
+    # Make best-effort guess at the client's IP
     try:
         ip = request.headers['X-Forwarded-For'].split(', ')[0]
     except KeyError:
         ip = request.remote_addr
-    valid = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
-    if valid.match(ip):
+    # Attempt to sanitize/validate against possible
+    try:
+        inet_pton(AF_INET, ip)
+    except OSError:
+        try:
+            inet_pton(AF_INET6, ip)
+        except OSError:
+            abort(400)
+    finally:
         return ip
-    else:
-        abort(400)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
